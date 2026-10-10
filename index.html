@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Fourier Drawing Machine</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;1,7..72,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#e7ebe6; --panel:#dde3dc; --ink:#1d2a2a; --muted:#5b6866; --rule:#c3ccc4;
+  --xc:#0e7c74; --yc:#b26b12; --pen:#d23c3c; --fill:rgba(29,42,42,.09);
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#1b201f; --panel:#242a29; --ink:#e4eae6; --muted:#97a39f; --rule:#37403e;
+    --xc:#4fd1c5; --yc:#f0b443; --pen:#ff6b5e; --fill:rgba(228,234,230,.08);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#1b201f; --panel:#242a29; --ink:#e4eae6; --muted:#97a39f; --rule:#37403e;
+  --xc:#4fd1c5; --yc:#f0b443; --pen:#ff6b5e; --fill:rgba(228,234,230,.08);
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--paper);color:var(--ink);
+  font-family:"Literata","Songti SC","Noto Serif SC","Source Han Serif SC",serif;line-height:1.7}
+main{max-width:640px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:1.75rem;font-weight:600;margin:4px 0 2px;letter-spacing:.02em}
+.lede{color:var(--muted);margin:0 0 14px;font-size:.95rem}
+.stage{position:relative;width:100%;aspect-ratio:1/1;background:var(--panel);border-radius:14px;overflow:hidden}
+canvas{width:100%;height:100%;display:block}
+.stage.drawing canvas{touch-action:none;cursor:crosshair}
+.hint{position:absolute;left:12px;right:12px;top:10px;font-size:.85rem;color:var(--muted);pointer-events:none;text-align:center}
+.readout{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:18px 0 4px}
+.nval{font-size:2.6rem;font-weight:600;line-height:1;font-variant-numeric:tabular-nums}
+.nval small{font-size:1rem;font-weight:400;color:var(--muted);margin-right:6px}
+.err{text-align:right;font-variant-numeric:tabular-nums;color:var(--muted);font-size:.9rem}
+.err b{display:block;color:var(--pen);font-size:1.4rem;font-weight:600}
+input[type=range]{width:100%;accent-color:var(--pen);margin:6px 0 2px}
+.row{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}
+button{font:inherit;font-size:.95rem;color:var(--ink);background:transparent;border:1px solid var(--rule);
+  border-radius:999px;padding:6px 14px;cursor:pointer}
+button[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+button:focus-visible,input:focus-visible{outline:2px solid var(--pen);outline-offset:2px}
+.sub{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;align-items:center;font-size:.9rem;color:var(--muted)}
+label.chk{display:inline-flex;gap:6px;align-items:center;margin-right:14px;font-size:.9rem;color:var(--muted)}
+.notes{border-top:1px solid var(--rule);margin-top:22px;padding-top:12px;font-size:.95rem}
+.notes p{margin:.5em 0}
+.x{color:var(--xc)} .y{color:var(--yc)} .p{color:var(--pen)}
+</style>
+</head>
+<body>
+<main>
+  <h1>Fourier Drawing Machine</h1>
+  <p class="lede">A chain of turning circles draws a shape. Move the slider to change the number of circles, N.</p>
+
+  <div class="stage" id="stage">
+    <canvas id="cv" aria-label="Fourier epicycle animation"></canvas>
+    <div class="hint" id="hint" hidden>Draw a line with your finger or mouse. When you release, the line closes automatically.</div>
+  </div>
+
+  <div class="readout">
+    <div class="nval"><small>N =</small><span id="nOut">5</span></div>
+    <div class="err">Max error (% of height)<b id="errOut">–</b></div>
+  </div>
+  <input id="n" type="range" min="1" max="200" value="5" aria-label="Number of harmonics N">
+
+  <div class="row" role="group" aria-label="Shape">
+    <button data-shape="butterfly" aria-pressed="true">Butterfly</button>
+    <button data-shape="heart" aria-pressed="false">Heart</button>
+    <button data-shape="star" aria-pressed="false">Star</button>
+    <button data-shape="draw" aria-pressed="false">Draw your own</button>
+  </div>
+
+  <div class="sub">
+    <span>Speed</span><input id="speed" type="range" min="0.1" max="3" step="0.1" value="1" aria-label="Speed">
+  </div>
+  <div style="margin-top:8px">
+    <label class="chk"><input type="checkbox" id="showCircles" checked>Show circles</label>
+    <label class="chk"><input type="checkbox" id="showTarget" checked>Show original shape</label>
+  </div>
+
+  <div class="notes">
+    <p>The <span class="x">top chain</span> sets the x coordinate. The <span class="y">left chain</span> sets the y coordinate. The <span class="p">pen</span> is where the two dashed lines cross.</p>
+    <p>Circle k turns k times per lap. Its radius is √(aₖ² + bₖ²). The program takes 1024 points along the original shape. Then it calculates the coefficients from these points.</p>
+    <p>Try the heart. Its formula has only 4 frequencies, so the error is almost 0 at N = 4. The star has sharp corners, so its error decreases slowly, even at a large N.</p>
+    <p>Fourier analysis does more than draw. See <a href="examples.html" style="color:var(--xc)">seven examples beyond drawing</a>: JPEG, MP3, spectrum analysis, heat flow, spectral methods, time series, and the Fourier transform.</p>
+  </div>
+</main>
+
+<script>
+(function(){
+const M = 1024, KMAX = 200;
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+const stage = document.getElementById('stage'), hint = document.getElementById('hint');
+const nIn = document.getElementById('n'), nOut = document.getElementById('nOut'), errOut = document.getElementById('errOut');
+const speedIn = document.getElementById('speed');
+const showCircles = document.getElementById('showCircles'), showTarget = document.getElementById('showTarget');
+
+const COS = new Float64Array(M), SIN = new Float64Array(M);
+for (let j=0;j<M;j++){ COS[j]=Math.cos(2*Math.PI*j/M); SIN[j]=Math.sin(2*Math.PI*j/M); }
+
+let target = [], coef = null, recon = [], N = 5, t = 0, trail = [], drawing = false, stroke = [];
+let colors = {};
+function readColors(){
+  const s = getComputedStyle(document.documentElement);
+  ['ink','muted','xc','yc','pen','fill','panel'].forEach(k=>colors[k]=s.getPropertyValue('--'+k).trim());
+}
+readColors();
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', readColors);
+
+/* ---------- shapes (y up) ---------- */
+function butterfly(){
+  const p=[];
+  for(let j=0;j<M;j++){
+    const th=2*Math.PI*j/M, s2=Math.sin(2*th);
+    const r=0.18+Math.pow(s2*s2,0.7)*(1+0.45*Math.sin(th));
+    p.push({x:r*Math.cos(th),y:r*Math.sin(th)});
+  }
+  return p;
+}
+function heart(){
+  const p=[];
+  for(let j=0;j<M;j++){
+    const u=2*Math.PI*j/M;
+    p.push({x:16*Math.pow(Math.sin(u),3), y:13*Math.cos(u)-5*Math.cos(2*u)-2*Math.cos(3*u)-Math.cos(4*u)});
+  }
+  return p;
+}
+function star(){
+  const v=[];
+  for(let i=0;i<10;i++){
+    const a=Math.PI/2+i*Math.PI/5, r=i%2?0.42:1;
+    v.push({x:r*Math.cos(a),y:r*Math.sin(a)});
+  }
+  return resample(v);
+}
+function resample(pts){
+  const n=pts.length, cum=[0];
+  for(let i=0;i<n;i++){const a=pts[i],b=pts[(i+1)%n];cum.push(cum[i]+Math.hypot(b.x-a.x,b.y-a.y));}
+  const L=cum[n], out=[]; let seg=0;
+  for(let j=0;j<M;j++){
+    const d=L*j/M;
+    while(cum[seg+1]<d) seg++;
+    const a=pts[seg],b=pts[(seg+1)%n], f=(d-cum[seg])/((cum[seg+1]-cum[seg])||1);
+    out.push({x:a.x+(b.x-a.x)*f,y:a.y+(b.y-a.y)*f});
+  }
+  return out;
+}
+function normalize(p){
+  let x0=Infinity,x1=-Infinity,y0=Infinity,y1=-Infinity;
+  p.forEach(q=>{x0=Math.min(x0,q.x);x1=Math.max(x1,q.x);y0=Math.min(y0,q.y);y1=Math.max(y1,q.y);});
+  const cx=(x0+x1)/2, cy=(y0+y1)/2, s=Math.max(x1-x0,y1-y0)||1;
+  return p.map(q=>({x:(q.x-cx)/s,y:(q.y-cy)/s}));
+}
+
+/* ---------- Fourier ---------- */
+function computeCoef(){
+  const a=new Float64Array(KMAX+1),b=new Float64Array(KMAX+1),c=new Float64Array(KMAX+1),d=new Float64Array(KMAX+1);
+  let mx=0,my=0; target.forEach(q=>{mx+=q.x;my+=q.y;}); mx/=M; my/=M;
+  for(let k=1;k<=KMAX;k++){
+    let sa=0,sb=0,sc=0,sd=0;
+    for(let j=0;j<M;j++){
+      const idx=(k*j)%M, co=COS[idx], si=SIN[idx], q=target[j];
+      sa+=q.x*co; sb+=q.x*si; sc+=q.y*co; sd+=q.y*si;
+    }
+    a[k]=2*sa/M; b[k]=2*sb/M; c[k]=2*sc/M; d[k]=2*sd/M;
+  }
+  let y0=Infinity,y1=-Infinity; target.forEach(q=>{y0=Math.min(y0,q.y);y1=Math.max(y1,q.y);});
+  coef={a,b,c,d,x0:mx,y0:my,h:(y1-y0)||1};
+}
+function computeRecon(){
+  recon=[]; let maxErr=0;
+  for(let j=0;j<M;j++){
+    let x=coef.x0,y=coef.y0;
+    for(let k=1;k<=N;k++){const idx=(k*j)%M;x+=coef.a[k]*COS[idx]+coef.b[k]*SIN[idx];y+=coef.c[k]*COS[idx]+coef.d[k]*SIN[idx];}
+    recon.push({x,y});
+    maxErr=Math.max(maxErr,Math.hypot(x-target[j].x,y-target[j].y));
+  }
+  errOut.textContent=(100*maxErr/coef.h).toFixed(2)+'%';
+  trail=[];
+}
+
+/* ---------- layout ---------- */
+let W=0,H=0,dpr=1,G={};
+function resize(){
+  dpr=window.devicePixelRatio||1;
+  const r=stage.getBoundingClientRect(); W=r.width; H=r.height;
+  cv.width=W*dpr; cv.height=H*dpr; ctx.setTransform(dpr,0,0,dpr,0,0);
+  const pad=W*0.04, s=Math.min(W,H)/1.85;
+  G.s=s*0.92; G.fx=W-pad-s/2; G.fy=H-pad-s/2;
+  G.topY=(G.fy-s/2)/2+pad*0.3; G.leftX=(G.fx-s/2)/2+pad*0.3;
+}
+window.addEventListener('resize',resize);
+
+function toScreen(q){return {x:G.fx+G.s*q.x, y:G.fy-G.s*q.y};}
+
+function chain(sx,sy,A,B,isX){
+  // returns list of points along chain; each term's projection on its axis equals the series term
+  const terms=[];
+  for(let k=1;k<=N;k++){const R=Math.hypot(A[k],B[k]); if(R>1e-6) terms.push({k,R,ph:Math.atan2(B[k],A[k])});}
+  terms.sort((p,q)=>q.R-p.R);
+  const pts=[{x:sx,y:sy,r:0}]; let x=sx,y=sy;
+  for(const tm of terms){
+    const ang=tm.k*t-tm.ph, R=G.s*tm.R;
+    if(isX){x+=R*Math.cos(ang); y+=R*Math.sin(ang);}
+    else {x+=R*Math.sin(ang); y-=R*Math.cos(ang);}
+    pts.push({x,y,r:R});
+  }
+  return pts;
+}
+function drawChain(pts,color){
+  ctx.strokeStyle=color;
+  if(showCircles.checked){
+    ctx.globalAlpha=0.35; ctx.lineWidth=1;
+    for(let i=1;i<pts.length;i++){ if(pts[i].r<0.6) continue; ctx.beginPath(); ctx.arc(pts[i-1].x,pts[i-1].y,pts[i].r,0,2*Math.PI); ctx.stroke(); }
+  }
+  ctx.globalAlpha=0.85; ctx.lineWidth=1.2; ctx.beginPath(); ctx.moveTo(pts[0].x,pts[0].y);
+  for(let i=1;i<pts.length;i++) ctx.lineTo(pts[i].x,pts[i].y);
+  ctx.stroke(); ctx.globalAlpha=1;
+  const e=pts[pts.length-1]; ctx.fillStyle=color; ctx.beginPath(); ctx.arc(e.x,e.y,3.5,0,2*Math.PI); ctx.fill();
+  return e;
+}
+function path(list,close){
+  ctx.beginPath(); list.forEach((q,i)=>{const p=toScreen(q); i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y);}); if(close) ctx.closePath();
+}
+
+/* ---------- loop ---------- */
+let last=performance.now();
+function frame(now){
+  const dt=Math.min(0.05,(now-last)/1000); last=now;
+  ctx.clearRect(0,0,W,H);
+  if(drawing){ drawStroke(); requestAnimationFrame(frame); return; }
+  if(!coef){requestAnimationFrame(frame);return;}
+
+  const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  t+=dt*(2*Math.PI/10)*parseFloat(speedIn.value)*(reduce?0.4:1);
+  if(t>=2*Math.PI){t-=2*Math.PI; trail=[];}
+
+  if(showTarget.checked){ ctx.fillStyle=colors.fill; path(target,true); ctx.fill(); }
+  ctx.strokeStyle=colors.pen; ctx.globalAlpha=0.22; ctx.lineWidth=1.5; path(recon,true); ctx.stroke(); ctx.globalAlpha=1;
+
+  const xs=chain(G.fx+G.s*coef.x0,G.topY,coef.a,coef.b,true);
+  const ys=chain(G.leftX,G.fy-G.s*coef.y0,coef.c,coef.d,false);
+  const ex=drawChain(xs,colors.xc), ey=drawChain(ys,colors.yc);
+  const pen={x:ex.x,y:ey.y};
+
+  ctx.setLineDash([5,5]); ctx.lineWidth=1;
+  ctx.strokeStyle=colors.xc; ctx.globalAlpha=0.6; ctx.beginPath(); ctx.moveTo(ex.x,ex.y); ctx.lineTo(pen.x,pen.y); ctx.stroke();
+  ctx.strokeStyle=colors.yc; ctx.beginPath(); ctx.moveTo(ey.x,ey.y); ctx.lineTo(pen.x,pen.y); ctx.stroke();
+  ctx.setLineDash([]); ctx.globalAlpha=1;
+
+  trail.push(pen);
+  ctx.strokeStyle=colors.pen; ctx.lineWidth=2.2; ctx.lineJoin='round'; ctx.beginPath();
+  trail.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y)); ctx.stroke();
+  ctx.fillStyle=colors.pen; ctx.beginPath(); ctx.arc(pen.x,pen.y,4,0,2*Math.PI); ctx.fill();
+
+  requestAnimationFrame(frame);
+}
+
+/* ---------- drawing mode ---------- */
+function drawStroke(){
+  if(stroke.length<2) return;
+  ctx.strokeStyle=colors.pen; ctx.lineWidth=2.5; ctx.lineJoin='round'; ctx.lineCap='round';
+  ctx.beginPath(); stroke.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y)); ctx.stroke();
+}
+let down=false;
+function local(e){const r=cv.getBoundingClientRect();return {x:e.clientX-r.left,y:e.clientY-r.top};}
+cv.addEventListener('pointerdown',e=>{ if(!drawing) return; down=true; stroke=[local(e)]; cv.setPointerCapture(e.pointerId); });
+cv.addEventListener('pointermove',e=>{ if(!drawing||!down) return; const p=local(e), q=stroke[stroke.length-1]; if(Math.hypot(p.x-q.x,p.y-q.y)>2) stroke.push(p); });
+cv.addEventListener('pointerup',()=>{
+  if(!drawing||!down) return; down=false;
+  let len=0; for(let i=1;i<stroke.length;i++) len+=Math.hypot(stroke[i].x-stroke[i-1].x,stroke[i].y-stroke[i-1].y);
+  if(stroke.length<15||len<W*0.3){ hint.textContent='The line is too short. Draw a longer line.'; stroke=[]; return; }
+  setTarget(resample(stroke.map(p=>({x:p.x,y:-p.y}))));
+  drawing=false; stage.classList.remove('drawing'); hint.hidden=true;
+});
+
+function setTarget(pts){ target=normalize(pts); computeCoef(); computeRecon(); t=0; }
+
+document.querySelectorAll('[data-shape]').forEach(btn=>btn.addEventListener('click',()=>{
+  document.querySelectorAll('[data-shape]').forEach(b=>b.setAttribute('aria-pressed',b===btn));
+  const s=btn.dataset.shape;
+  if(s==='draw'){ drawing=true; stroke=[]; stage.classList.add('drawing'); hint.textContent='Draw a line with your finger or mouse. When you release, the line closes automatically.'; hint.hidden=false; return; }
+  drawing=false; stage.classList.remove('drawing'); hint.hidden=true;
+  setTarget(s==='heart'?heart():s==='star'?star():butterfly());
+}));
+
+nIn.addEventListener('input',()=>{ N=parseInt(nIn.value,10); nOut.textContent=N; if(coef) computeRecon(); });
+
+resize(); setTarget(butterfly()); requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

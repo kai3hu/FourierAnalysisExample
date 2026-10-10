@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Fourier Beyond Drawing</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;1,7..72,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#e7ebe6; --panel:#dde3dc; --ink:#1d2a2a; --muted:#5b6866; --rule:#c3ccc4;
+  --a:#0e7c74; --b:#b26b12; --pen:#d23c3c; --fill:rgba(29,42,42,.09);
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#1b201f; --panel:#242a29; --ink:#e4eae6; --muted:#97a39f; --rule:#37403e;
+    --a:#4fd1c5; --b:#f0b443; --pen:#ff6b5e; --fill:rgba(228,234,230,.08);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#1b201f; --panel:#242a29; --ink:#e4eae6; --muted:#97a39f; --rule:#37403e;
+  --a:#4fd1c5; --b:#f0b443; --pen:#ff6b5e; --fill:rgba(228,234,230,.08);
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:"Literata",Georgia,serif;line-height:1.7}
+main{max-width:720px;margin:0 auto;padding:20px 16px 48px}
+h1{font-size:1.9rem;font-weight:600;margin:4px 0 4px}
+.lede{color:var(--muted);margin:0 0 8px}
+nav.toc{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:.92rem;margin:10px 0 8px}
+a{color:var(--a)}
+section{border-top:1px solid var(--rule);padding-top:18px;margin-top:30px}
+h2{font-size:1.3rem;font-weight:600;margin:0 0 6px}
+h2 .n{color:var(--muted);font-weight:400;margin-right:8px}
+p{margin:.45em 0}
+.cv{width:100%;display:block;background:var(--panel);border-radius:12px;margin:10px 0 4px}
+.ctl{display:grid;grid-template-columns:auto 1fr auto;gap:4px 12px;align-items:center;font-size:.92rem;color:var(--muted);margin:8px 0}
+.ctl output{font-variant-numeric:tabular-nums;color:var(--ink);min-width:3.5em;text-align:right}
+input[type=range]{width:100%;accent-color:var(--pen)}
+.legend{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:.85rem;color:var(--muted)}
+.sw{display:inline-block;width:14px;height:3px;border-radius:2px;vertical-align:middle;margin-right:6px}
+.stats{display:flex;flex-wrap:wrap;gap:6px 22px;font-variant-numeric:tabular-nums;font-size:.95rem;margin:6px 0}
+.stats b{font-weight:600}
+.row{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
+button{font:inherit;font-size:.9rem;color:var(--ink);background:transparent;border:1px solid var(--rule);border-radius:999px;padding:5px 13px;cursor:pointer}
+button[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+button:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(--pen);outline-offset:2px}
+.a{color:var(--a)} .b{color:var(--b)} .p{color:var(--pen)}
+.note{font-size:.9rem;color:var(--muted)}
+footer{margin-top:40px;font-size:.9rem;color:var(--muted)}
+</style>
+</head>
+<body>
+<main>
+<h1>Fourier Beyond Drawing</h1>
+<p class="lede">Most real signals are not periodic. Each example below makes a signal periodic first. Then it uses Fourier analysis. The method that makes the signal periodic controls the error.</p>
+<nav class="toc">
+  <a href="#jpeg">1 JPEG</a><a href="#mp3">2 MP3 / AAC</a><a href="#stft">3 Spectrum</a><a href="#heat">4 Heat</a>
+  <a href="#spectral">5 Spectral methods</a><a href="#series">6 Time series</a><a href="#transform">7 Fourier transform</a>
+</nav>
+
+<!-- 1 -->
+<section id="jpeg">
+  <h2><span class="n">1</span>JPEG image compression</h2>
+  <p>A block of pixels is not periodic. If you repeat the block, its two ends do not match, and you get a jump. If you mirror the block, the ends match. A mirrored signal needs only cosine terms. This is the DCT (discrete cosine transform).</p>
+  <canvas class="cv" id="c1ext" data-ratio="0.42"></canvas>
+  <div class="legend"><span><i class="sw" style="background:var(--b)"></i>Repeat (DFT sees this)</span><span><i class="sw" style="background:var(--a)"></i>Mirror (DCT sees this)</span></div>
+  <canvas class="cv" id="c1" data-ratio="0.5"></canvas>
+  <div class="ctl"><span>Numbers kept</span><input id="k1" type="range" min="1" max="32" value="6"><output id="k1o">6</output></div>
+  <div class="legend"><span><i class="sw" style="background:var(--ink)"></i>Original</span><span><i class="sw" style="background:var(--b)"></i>DFT</span><span><i class="sw" style="background:var(--a)"></i>DCT</span></div>
+  <div class="stats"><span>DFT max error <b class="b" id="e1d"></b></span><span>DCT max error <b class="a" id="e1c"></b></span></div>
+  <p>JPEG applies the DCT to each 8×8 block in two directions. Then it removes the small high-frequency coefficients. Move the slider to keep fewer coefficients per block.</p>
+  <canvas class="cv" id="c1img" data-ratio="0.5"></canvas>
+  <div class="ctl"><span>Coefficients per block</span><input id="q1" type="range" min="1" max="15" value="4"><output id="q1o"></output></div>
+  <div class="legend"><span>Left: original</span><span>Right: compressed</span></div>
+</section>
+
+<!-- 2 -->
+<section id="mp3">
+  <h2><span class="n">2</span>MP3 and AAC audio compression</h2>
+  <p>Music is not periodic. The encoder cuts it into short frames. Simple blocks have hard edges, so removed coefficients cause jumps at each block edge. The MDCT uses frames that overlap by half. A sine window makes each frame go smoothly to 0. When the frames add back together, the edge errors cancel.</p>
+  <canvas class="cv" id="c2w" data-ratio="0.22"></canvas>
+  <div class="legend"><span><i class="sw" style="background:var(--a)"></i>MDCT windows (overlap)</span><span><i class="sw" style="background:var(--b)"></i>Block edges (no overlap)</span></div>
+  <canvas class="cv" id="c2" data-ratio="0.5"></canvas>
+  <div class="ctl"><span>Coefficients kept (of 64)</span><input id="k2" type="range" min="1" max="40" value="6"><output id="k2o">6</output></div>
+  <div class="legend"><span><i class="sw" style="background:var(--ink)"></i>Original</span><span><i class="sw" style="background:var(--b)"></i>Blocks</span><span><i class="sw" style="background:var(--a)"></i>MDCT</span></div>
+  <div class="stats"><span>Largest extra jump at edges: blocks <b class="b" id="e2b"></b></span><span>MDCT <b class="a" id="e2m"></b></span></div>
+  <p class="note">A real encoder also uses a hearing model. It removes the frequencies that a person cannot hear, not only the high frequencies.</p>
+</section>
+
+<!-- 3 -->
+<section id="stft">
+  <h2><span class="n">3</span>Spectrum analysis and leakage</h2>
+  <p>A tuner looks at a short window of sound. If the tone does not complete a whole number of cycles in the window, the window ends with a jump. The jump spreads energy into many frequencies. This is leakage. A Hann window makes the ends go to 0 and reduces leakage.</p>
+  <canvas class="cv" id="c3s" data-ratio="0.25"></canvas>
+  <canvas class="cv" id="c3" data-ratio="0.45"></canvas>
+  <div class="ctl"><span>Cycles in window</span><input id="f3" type="range" min="4" max="20" step="0.05" value="10.5"><output id="f3o"></output></div>
+  <div class="legend"><span><i class="sw" style="background:var(--b)"></i>No window (rectangular)</span><span><i class="sw" style="background:var(--a)"></i>Hann window</span><span>Scale: dB</span></div>
+  <div class="stats"><span>Energy outside the 3 main bins: rectangular <b class="b" id="e3r"></b></span><span>Hann <b class="a" id="e3h"></b></span></div>
+  <p class="note">Set the slider to a whole number, for example 10. Then the rectangular window has no leakage, because the tone is periodic in the window. The STFT moves this window along the signal.</p>
+</section>
+
+<!-- 4 -->
+<section id="heat">
+  <h2><span class="n">4</span>The heat equation</h2>
+  <p>A metal rod has length 1. Its two ends stay at 0 degrees. The start temperature is not periodic. Fourier made it periodic with an odd extension: he mirrored it upside down to the left side. An odd function needs only sine terms. Each term decays alone, as e<sup>−k²π²t</sup>. High frequencies decay fastest, so the temperature becomes smooth.</p>
+  <canvas class="cv" id="c4" data-ratio="0.5"></canvas>
+  <div class="ctl"><span>Time</span><input id="t4" type="range" min="0" max="1" step="0.001" value="0"><output id="t4o"></output></div>
+  <div class="row"><button id="p4" aria-pressed="false">Play</button></div>
+  <div class="legend"><span><i class="sw" style="background:var(--muted)"></i>Start temperature</span><span><i class="sw" style="background:var(--pen)"></i>Temperature now</span><span>Dashed left half: odd extension</span></div>
+  <canvas class="cv" id="c4b" data-ratio="0.22"></canvas>
+  <div class="legend"><span>Size of each sine term, k = 1 to 60</span></div>
+</section>
+
+<!-- 5 -->
+<section id="spectral">
+  <h2><span class="n">5</span>Spectral methods</h2>
+  <p>Weather and fluid models must calculate derivatives. In frequency space, a derivative is easy: multiply term k by ik. For a smooth periodic function, this spectral derivative is much more accurate than a finite difference with the same number of points. Here f(x) = e<sup>sin x</sup>.</p>
+  <canvas class="cv" id="c5" data-ratio="0.45"></canvas>
+  <div class="ctl"><span>Grid points</span><input id="n5" type="range" min="4" max="48" step="2" value="10"><output id="n5o"></output></div>
+  <div class="legend"><span><i class="sw" style="background:var(--ink)"></i>Exact f′(x)</span><span><i class="sw" style="background:var(--a)"></i>Spectral</span><span><i class="sw" style="background:var(--b)"></i>Finite difference</span></div>
+  <div class="stats"><span>Spectral error <b class="a" id="e5s"></b></span><span>Finite difference error <b class="b" id="e5f"></b></span></div>
+  <canvas class="cv" id="c5e" data-ratio="0.35"></canvas>
+  <div class="legend"><span>Max error against grid points (log scale)</span></div>
+  <p class="note">The longitude direction on Earth is periodic, so models use Fourier series there. For other directions, they use Chebyshev polynomials. A Chebyshev series is a cosine series after the change x = cos θ.</p>
+</section>
+
+<!-- 6 -->
+<section id="series">
+  <h2><span class="n">6</span>Time series: find the season</h2>
+  <p>Ten years of monthly data have a trend, a yearly season, and noise. The last value is much higher than the first. This jump puts a lot of energy into the lowest frequencies, and the season is hard to see. Remove the trend (a straight line) first. Then the season shows as one clear peak.</p>
+  <canvas class="cv" id="c6" data-ratio="0.42"></canvas>
+  <div class="row"><button id="d6" aria-pressed="false">Remove trend</button></div>
+  <canvas class="cv" id="c6s" data-ratio="0.35"></canvas>
+  <div class="legend"><span>Spectrum, k = 1 to 60 cycles in 120 months</span><span><i class="sw" style="background:var(--pen)"></i>Highest peak</span></div>
+  <div class="stats"><span>Highest peak at k = <b class="p" id="e6k"></b></span><span>Period = 120 / k = <b class="p" id="e6p"></b> months</span></div>
+</section>
+
+<!-- 7 -->
+<section id="transform">
+  <h2><span class="n">7</span>From series to transform</h2>
+  <p>A pulse of width 1 repeats with period T. Its Fourier series has terms at frequencies k / T. When T increases, the terms come closer together. When T goes to infinity, the pulse does not repeat, and the terms become a continuous curve. This curve is the Fourier transform.</p>
+  <canvas class="cv" id="c7t" data-ratio="0.22"></canvas>
+  <canvas class="cv" id="c7" data-ratio="0.45"></canvas>
+  <div class="ctl"><span>Period T</span><input id="T7" type="range" min="1.5" max="24" step="0.1" value="3"><output id="T7o"></output></div>
+  <div class="legend"><span><i class="sw" style="background:var(--a)"></i>T · c<sub>k</sub> at frequency k / T</span><span><i class="sw" style="background:var(--muted)"></i>Transform: sin(πω) / (πω)</span></div>
+  <p class="note">The series uses a sum over k. The transform uses an integral over ω. MRI scanners measure the Fourier transform of the body directly, then they invert it to make an image.</p>
+</section>
+
+<footer>Part of the <a href="index.html">Fourier Drawing Machine</a> project.</footer>
+</main>
+
+<script>
+(function(){
+const $=id=>document.getElementById(id);
+let C={};
+function readColors(){const s=getComputedStyle(document.documentElement);['ink','muted','a','b','pen','fill','panel','rule'].forEach(k=>C[k]=s.getPropertyValue('--'+k).trim());}
+readColors();
+
+/* ---------- canvas helpers ---------- */
+const views=[];
+function view(id,draw){const cv=$(id);const v={cv,ctx:cv.getContext('2d'),draw,W:0,H:0};views.push(v);return v;}
+function sizeAll(){
+  const dpr=window.devicePixelRatio||1;
+  views.forEach(v=>{const w=v.cv.clientWidth,h=Math.round(w*parseFloat(v.cv.dataset.ratio));
+    v.cv.style.height=h+'px';v.cv.width=w*dpr;v.cv.height=h*dpr;v.ctx.setTransform(dpr,0,0,dpr,0,0);v.W=w;v.H=h;});
+  redrawAll();
+}
+function redrawAll(){views.forEach(v=>{v.ctx.clearRect(0,0,v.W,v.H);v.draw(v);});}
+window.addEventListener('resize',sizeAll);
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{readColors();redrawAll();});
+
+// plot layers into box {x,y,w,h} with range {x0,x1,y0,y1}
+function plot(v,R,layers,box){
+  const ctx=v.ctx,p=10;box=box||{x:p,y:p,w:v.W-2*p,h:v.H-2*p};
+  const X=x=>box.x+(x-R.x0)/(R.x1-R.x0)*box.w, Y=y=>box.y+box.h-(y-R.y0)/(R.y1-R.y0)*box.h;
+  if(R.y0<0&&R.y1>0){ctx.strokeStyle=C.rule;ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(box.x,Y(0));ctx.lineTo(box.x+box.w,Y(0));ctx.stroke();}
+  for(const L of layers){
+    ctx.save();ctx.globalAlpha=L.alpha??1;ctx.strokeStyle=ctx.fillStyle=L.color;ctx.lineWidth=L.lw||1.6;ctx.setLineDash(L.dash||[]);ctx.lineJoin='round';
+    const xs=L.xs,ys=L.ys,n=ys.length,base=L.base??Math.max(R.y0,Math.min(0,R.y1));
+    if(L.type==='stem'){for(let i=0;i<n;i++){if(xs[i]<R.x0||xs[i]>R.x1)continue;ctx.beginPath();ctx.moveTo(X(xs[i]),Y(base));ctx.lineTo(X(xs[i]),Y(ys[i]));ctx.stroke();ctx.beginPath();ctx.arc(X(xs[i]),Y(ys[i]),L.r||2.5,0,7);ctx.fill();}}
+    else if(L.type==='dots'){for(let i=0;i<n;i++){ctx.beginPath();ctx.arc(X(xs[i]),Y(ys[i]),L.r||3,0,7);ctx.fill();}}
+    else if(L.type==='bars'){const bw=Math.max(1,box.w/(R.x1-R.x0)*(L.bw||0.7));for(let i=0;i<n;i++){const y1=Y(Math.max(R.y0,Math.min(R.y1,ys[i])));ctx.fillRect(X(xs[i])-bw/2,Math.min(y1,Y(base)),bw,Math.abs(Y(base)-y1));}}
+    else{ctx.beginPath();for(let i=0;i<n;i++){const px=X(xs[i]),py=Y(Math.max(R.y0-1e9,ys[i]));i?ctx.lineTo(px,py):ctx.moveTo(px,py);}ctx.stroke();}
+    ctx.restore();
+  }
+  return {X,Y,box};
+}
+const range=(a,b,n)=>Array.from({length:n},(_,i)=>a+(b-a)*i/(n-1));
+const idx=n=>Array.from({length:n},(_,i)=>i);
+function seeded(s){return()=>{s=(s*16807)%2147483647;return s/2147483647-0.5;};}
+function dft(x){const n=x.length,re=new Float64Array(n),im=new Float64Array(n);
+  for(let k=0;k<n;k++){let a=0,b=0;for(let j=0;j<n;j++){const t=2*Math.PI*k*j/n;a+=x[j]*Math.cos(t);b-=x[j]*Math.sin(t);}re[k]=a;im[k]=b;}return{re,im};}
+function idftReal(re,im){const n=re.length,out=new Float64Array(n);
+  for(let j=0;j<n;j++){let s=0;for(let k=0;k<n;k++){const t=2*Math.PI*k*j/n;s+=re[k]*Math.cos(t)-im[k]*Math.sin(t);}out[j]=s/n;}return out;}
+const maxAbsDiff=(a,b)=>{let m=0;for(let i=0;i<a.length;i++)m=Math.max(m,Math.abs(a[i]-b[i]));return m;};
+const fmt=x=>x<1e-3?x.toExponential(1):x.toFixed(3);
+
+/* ---------- 1 JPEG ---------- */
+const n1=64, s1=idx(n1).map(j=>{const x=j/(n1-1);return 0.9*x-0.3+0.25*Math.sin(5*x)+0.35*Math.exp(-(((x-0.35)/0.08)**2));});
+const F1=dft(s1);
+const D1=idx(n1).map(k=>s1.reduce((s,v,j)=>s+v*Math.cos(Math.PI*(j+0.5)*k/n1),0));
+let r1d=[],r1c=[];
+function calc1(){
+  const K=+$('k1').value;$('k1o').textContent=K;
+  const kmax=Math.floor((K-1)/2),re=new Float64Array(n1),im=new Float64Array(n1);
+  for(let k=0;k<=kmax;k++){re[k]=F1.re[k];im[k]=F1.im[k];if(k){re[n1-k]=F1.re[n1-k];im[n1-k]=F1.im[n1-k];}}
+  r1d=Array.from(idftReal(re,im));
+  r1c=idx(n1).map(j=>{let s=D1[0]/n1;for(let k=1;k<K;k++)s+=2/n1*D1[k]*Math.cos(Math.PI*(j+0.5)*k/n1);return s;});
+  $('e1d').textContent=maxAbsDiff(r1d,s1).toFixed(3);$('e1c').textContent=maxAbsDiff(r1c,s1).toFixed(3);
+}
+view('c1ext',v=>{
+  const h=(v.H-30)/2,R={x0:0,x1:3*n1,y0:-0.7,y1:1.1},xs=idx(3*n1);
+  const rep=xs.map(i=>s1[i%n1]), mir=xs.map(i=>{const b=Math.floor(i/n1),j=i%n1;return s1[b%2?n1-1-j:j];});
+  plot(v,R,[{xs,ys:rep,color:C.b}],{x:10,y:10,w:v.W-20,h});
+  plot(v,R,[{xs,ys:mir,color:C.a}],{x:10,y:20+h,w:v.W-20,h});
+});
+view('c1',v=>{const xs=idx(n1),R={x0:0,x1:n1-1,y0:-0.7,y1:1.1};
+  plot(v,R,[{xs,ys:s1,color:C.ink,lw:2.4,alpha:.5},{xs,ys:r1d,color:C.b},{xs,ys:r1c,color:C.a}]);});
+// image
+const IM=96, img=new Float64Array(IM*IM);
+(function(){for(let y=0;y<IM;y++)for(let x=0;x<IM;x++){
+  let v=0.25+0.4*x/IM+0.15*Math.sin(y/9);
+  if((x-34)**2+(y-40)**2<18**2)v=0.9;
+  if(x>60&&y>56)v=((Math.floor((x+y)/5))%2)?0.15:0.75;
+  if(x>58&&x<62)v=0.05;
+  img[y*IM+x]=v;}})();
+const cos8=[];for(let k=0;k<8;k++)for(let n=0;n<8;n++)cos8[k*8+n]=Math.cos(Math.PI*(n+0.5)*k/8)*(k?Math.sqrt(2/8):Math.sqrt(1/8));
+let comp=new Float64Array(IM*IM);
+function calcImg(){
+  const q=+$('q1').value;let kept=0;for(let u=0;u<8;u++)for(let w=0;w<8;w++)if(u+w<q)kept++;
+  $('q1o').textContent=kept+' of 64';
+  const B=new Float64Array(64),T=new Float64Array(64),Cf=new Float64Array(64);
+  for(let by=0;by<IM;by+=8)for(let bx=0;bx<IM;bx+=8){
+    for(let y=0;y<8;y++)for(let x=0;x<8;x++)B[y*8+x]=img[(by+y)*IM+bx+x];
+    for(let u=0;u<8;u++)for(let x=0;x<8;x++){let s=0;for(let y=0;y<8;y++)s+=cos8[u*8+y]*B[y*8+x];T[u*8+x]=s;}
+    for(let u=0;u<8;u++)for(let w=0;w<8;w++){let s=0;for(let x=0;x<8;x++)s+=cos8[w*8+x]*T[u*8+x];Cf[u*8+w]=(u+w<q)?s:0;}
+    for(let u=0;u<8;u++)for(let x=0;x<8;x++){let s=0;for(let w=0;w<8;w++)s+=cos8[w*8+x]*Cf[u*8+w];T[u*8+x]=s;}
+    for(let y=0;y<8;y++)for(let x=0;x<8;x++){let s=0;for(let u=0;u<8;u++)s+=cos8[u*8+y]*T[u*8+x];comp[(by+y)*IM+bx+x]=s;}
+  }
+}
+const off=document.createElement('canvas');off.width=IM*2+8;off.height=IM;
+view('c1img',v=>{
+  const o=off.getContext('2d'),d=o.createImageData(off.width,IM);
+  for(let y=0;y<IM;y++)for(let x=0;x<off.width;x++){
+    const p=(y*off.width+x)*4;let val;
+    if(x<IM)val=img[y*IM+x];else if(x>=IM+8)val=comp[y*IM+x-IM-8];else{d.data[p+3]=0;continue;}
+    const g=Math.max(0,Math.min(255,Math.round(val*255)));d.data[p]=d.data[p+1]=d.data[p+2]=g;d.data[p+3]=255;}
+  o.putImageData(d,0,0);
+  const s=Math.min((v.W-20)/off.width,(v.H-20)/IM);const w=off.width*s,h=IM*s;
+  v.ctx.imageSmoothingEnabled=false;v.ctx.drawImage(off,(v.W-w)/2,(v.H-h)/2,w,h);
+});
+
+/* ---------- 2 MP3 / MDCT ---------- */
+const L2=1024,N2=64;
+const s2=idx(L2).map(i=>0.5*Math.sin(2*Math.PI*6*i/L2)+0.3*Math.sin(2*Math.PI*(30+40*i/L2)*i/L2));
+const win2=idx(2*N2).map(n=>Math.sin(Math.PI*(n+0.5)/(2*N2)));
+const MC=[];for(let n=0;n<2*N2;n++){MC[n]=new Float64Array(N2);for(let k=0;k<N2;k++)MC[n][k]=Math.cos(Math.PI/N2*(n+0.5+N2/2)*(k+0.5));}
+const DC=[];for(let n=0;n<N2;n++){DC[n]=new Float64Array(N2);for(let k=0;k<N2;k++)DC[n][k]=Math.cos(Math.PI*(n+0.5)*k/N2);}
+let r2m=[],r2b=[];
+function calc2(){
+  const K=+$('k2').value;$('k2o').textContent=K;
+  const xp=new Float64Array(L2+2*N2);xp.set(s2,N2);const y=new Float64Array(L2+2*N2),X=new Float64Array(N2);
+  for(let s=0;s+2*N2<=xp.length;s+=N2){
+    for(let k=0;k<N2;k++){let a=0;if(k<K)for(let n=0;n<2*N2;n++)a+=win2[n]*xp[s+n]*MC[n][k];X[k]=a;}
+    for(let n=0;n<2*N2;n++){let a=0;for(let k=0;k<K;k++)a+=X[k]*MC[n][k];y[s+n]+=2/N2*a*win2[n];}
+  }
+  r2m=Array.from(y.slice(N2,N2+L2));
+  r2b=new Array(L2);
+  for(let s=0;s<L2;s+=N2){
+    for(let k=0;k<K;k++){let a=0;for(let n=0;n<N2;n++)a+=s2[s+n]*DC[n][k];X[k]=a;}
+    for(let n=0;n<N2;n++){let a=-X[0]/N2;for(let k=0;k<K;k++)a+=2/N2*X[k]*DC[n][k];r2b[s+n]=a;}
+  }
+  let jm=0,jb=0;for(let b=N2;b<L2;b+=N2){const o=Math.abs(s2[b]-s2[b-1]);jm=Math.max(jm,Math.abs(Math.abs(r2m[b]-r2m[b-1])-o));jb=Math.max(jb,Math.abs(Math.abs(r2b[b]-r2b[b-1])-o));}
+  $('e2b').textContent=jb.toFixed(3);$('e2m').textContent=jm.toFixed(3);
+}
+const view2x0=256,view2x1=640;
+view('c2w',v=>{
+  const R={x0:view2x0,x1:view2x1,y0:-0.05,y1:1.1},layers=[];
+  for(let s=-N2;s<L2;s+=N2){const xs=idx(2*N2).map(n=>s+n);layers.push({xs,ys:win2,color:C.a,lw:1.3,alpha:.85});}
+  const g=plot(v,R,layers);
+  v.ctx.strokeStyle=C.b;v.ctx.setLineDash([3,4]);
+  for(let b=0;b<=L2;b+=N2){if(b<view2x0||b>view2x1)continue;v.ctx.beginPath();v.ctx.moveTo(g.X(b),g.box.y);v.ctx.lineTo(g.X(b),g.box.y+g.box.h);v.ctx.stroke();}
+  v.ctx.setLineDash([]);
+});
+view('c2',v=>{const xs=idx(L2),R={x0:view2x0,x1:view2x1,y0:-0.95,y1:0.95};
+  const g=plot(v,R,[{xs,ys:s2,color:C.ink,lw:2.4,alpha:.4},{xs,ys:r2b,color:C.b,lw:1.5},{xs,ys:r2m,color:C.a,lw:1.5}]);
+  v.ctx.strokeStyle=C.rule;v.ctx.setLineDash([3,4]);
+  for(let b=0;b<=L2;b+=N2){if(b<view2x0||b>view2x1)continue;v.ctx.beginPath();v.ctx.moveTo(g.X(b),g.box.y);v.ctx.lineTo(g.X(b),g.box.y+g.box.h);v.ctx.stroke();}
+  v.ctx.setLineDash([]);
+});
+
+/* ---------- 3 STFT leakage ---------- */
+const n3=64;let sp3r=[],sp3h=[],sig3=[];
+const hann=idx(n3).map(j=>0.5-0.5*Math.cos(2*Math.PI*j/n3));
+function spec(x){const F=dft(x);const m=idx(n3/2+1).map(k=>Math.hypot(F.re[k],F.im[k]));const mx=Math.max(...m)||1;return m.map(v=>Math.max(-90,20*Math.log10(v/mx+1e-12)));}
+function leak(x){const F=dft(x);const p=idx(n3/2+1).map(k=>F.re[k]**2+F.im[k]**2);let pk=0;p.forEach((v,i)=>{if(v>p[pk])pk=i;});
+  const tot=p.reduce((a,b)=>a+b,0);let main=0;for(let k=pk-1;k<=pk+1;k++)if(k>=0&&k<p.length)main+=p[k];return 100*(tot-main)/tot;}
+function calc3(){const f=+$('f3').value;$('f3o').textContent=f.toFixed(2);
+  sig3=idx(n3).map(j=>Math.sin(2*Math.PI*f*j/n3));const hs=sig3.map((v,j)=>v*hann[j]);
+  sp3r=spec(sig3);sp3h=spec(hs);$('e3r').textContent=leak(sig3).toFixed(1)+'%';$('e3h').textContent=leak(hs).toFixed(1)+'%';}
+view('c3s',v=>{const xs=idx(n3),R={x0:0,x1:n3-1,y0:-1.15,y1:1.15};
+  plot(v,R,[{xs,ys:sig3,color:C.b,lw:1.4},{xs,ys:sig3.map((s,j)=>s*hann[j]),color:C.a,lw:1.6},{xs,ys:hann,color:C.muted,dash:[3,4],lw:1}]);});
+view('c3',v=>{const xs=idx(n3/2+1),R={x0:-0.5,x1:n3/2+0.5,y0:-90,y1:3};
+  plot(v,R,[{type:'bars',xs:xs.map(x=>x-0.18),ys:sp3r,color:C.b,bw:0.34,base:-90},{type:'bars',xs:xs.map(x=>x+0.18),ys:sp3h,color:C.a,bw:0.34,base:-90}]);});
+
+/* ---------- 4 Heat ---------- */
+const nx4=241,K4=120,x4=range(0,1,nx4);
+const r4=seeded(7);
+const f4=x4.map(x=>(x>0.18&&x<0.42?1:0)+Math.max(0,0.8-Math.abs(x-0.7)*8)+0.12*r4()*(x>0.05&&x<0.95?1:0));
+f4[0]=0;f4[nx4-1]=0;
+const b4=idx(K4+1).map(k=>{if(!k)return 0;let s=0;for(let i=0;i<nx4-1;i++){const xm=(x4[i]+x4[i+1])/2,fm=(f4[i]+f4[i+1])/2;s+=fm*Math.sin(k*Math.PI*xm)*(x4[i+1]-x4[i]);}return 2*s;});
+const SIN4=idx(K4+1).map(k=>x4.map(x=>Math.sin(k*Math.PI*x)));
+let u4=[],amp4=[];
+function calc4(){const t=+$('t4').value,tau=0.02*t*t;$('t4o').textContent=t.toFixed(2);
+  amp4=b4.map((b,k)=>b*Math.exp(-((k*Math.PI)**2)*tau));
+  u4=x4.map((_,i)=>{let s=0;for(let k=1;k<=K4;k++)s+=amp4[k]*SIN4[k][i];return s;});}
+view('c4',v=>{const R={x0:-1,x1:1,y0:-1.25,y1:1.25};
+  const xl=x4.map(x=>-x);
+  const g=plot(v,R,[{xs:x4,ys:f4,color:C.muted,lw:1.2,alpha:.7},{xs:xl,ys:f4.map(y=>-y),color:C.muted,lw:1,alpha:.4,dash:[4,4]},
+    {xs:xl,ys:u4.map(y=>-y),color:C.pen,lw:1.6,alpha:.5,dash:[4,4]},{xs:x4,ys:u4,color:C.pen,lw:2.4}]);
+  v.ctx.strokeStyle=C.rule;v.ctx.beginPath();v.ctx.moveTo(g.X(0),g.box.y);v.ctx.lineTo(g.X(0),g.box.y+g.box.h);v.ctx.stroke();
+  v.ctx.fillStyle=C.muted;v.ctx.font='12px Literata, Georgia, serif';v.ctx.fillText('rod',g.X(0.47),g.box.y+12);v.ctx.fillText('extension',g.X(-0.6),g.box.y+12);
+});
+view('c4b',v=>{const ks=idx(60).map(i=>i+1);plot(v,{x0:0.5,x1:60.5,y0:0,y1:0.75},[{type:'bars',xs:ks,ys:ks.map(k=>Math.abs(amp4[k])),color:C.pen,bw:0.6,base:0}]);});
+let playing=false,lastT=0;
+$('p4').addEventListener('click',()=>{playing=!playing;$('p4').setAttribute('aria-pressed',playing);$('p4').textContent=playing?'Pause':'Play';
+  if(playing){if(+$('t4').value>=1)$('t4').value=0;lastT=performance.now();requestAnimationFrame(step4);}});
+function step4(now){if(!playing)return;const dt=(now-lastT)/1000;lastT=now;let t=+$('t4').value+dt/8;
+  if(t>=1){t=1;playing=false;$('p4').setAttribute('aria-pressed','false');$('p4').textContent='Play';}
+  $('t4').value=t;calc4();redrawIds(['c4','c4b']);if(playing)requestAnimationFrame(step4);}
+
+/* ---------- 5 Spectral derivative ---------- */
+const f5=x=>Math.exp(Math.sin(x)),df5=x=>Math.cos(x)*Math.exp(Math.sin(x));
+function deriv5(N){const h=2*Math.PI/N,xs=idx(N).map(j=>j*h),fs=xs.map(f5);
+  const F=dft(fs),re=new Float64Array(N),im=new Float64Array(N);
+  for(let k=0;k<N;k++){const kk=k<N/2?k:(k===N/2?0:k-N);re[k]=-kk*F.im[k];im[k]=kk*F.re[k];}
+  const sp=Array.from(idftReal(re,im)),fd=xs.map((_,j)=>(fs[(j+1)%N]-fs[(j-1+N)%N])/(2*h)),ex=xs.map(df5);
+  return{xs,sp,fd,es:maxAbsDiff(sp,ex),ef:maxAbsDiff(fd,ex)};}
+const err5=idx(23).map(i=>{const N=4+2*i,d=deriv5(N);return{N,es:Math.max(d.es,1e-16),ef:d.ef};});
+let d5=null;
+function calc5(){const N=+$('n5').value;$('n5o').textContent=N;d5=deriv5(N);$('e5s').textContent=fmt(Math.max(d5.es,1e-16));$('e5f').textContent=fmt(d5.ef);}
+view('c5',v=>{const xx=range(0,2*Math.PI,300),R={x0:0,x1:2*Math.PI,y0:-1.9,y1:1.9};
+  plot(v,R,[{xs:xx,ys:xx.map(df5),color:C.ink,lw:1.6,alpha:.6},{type:'dots',xs:d5.xs,ys:d5.fd,color:C.b,r:4},{type:'dots',xs:d5.xs,ys:d5.sp,color:C.a,r:2.8}]);});
+view('c5e',v=>{const R={x0:4,x1:48,y0:-16.5,y1:0.5},Ns=err5.map(e=>e.N);
+  const g=plot(v,R,[{xs:Ns,ys:err5.map(e=>Math.log10(e.ef)),color:C.b},{xs:Ns,ys:err5.map(e=>Math.log10(e.es)),color:C.a},
+    {type:'dots',xs:Ns,ys:err5.map(e=>Math.log10(e.ef)),color:C.b,r:2},{type:'dots',xs:Ns,ys:err5.map(e=>Math.log10(e.es)),color:C.a,r:2}]);
+  const N=+$('n5').value;v.ctx.strokeStyle=C.pen;v.ctx.setLineDash([3,3]);v.ctx.beginPath();v.ctx.moveTo(g.X(N),g.box.y);v.ctx.lineTo(g.X(N),g.box.y+g.box.h);v.ctx.stroke();v.ctx.setLineDash([]);
+  v.ctx.fillStyle=C.muted;v.ctx.font='11px Literata, Georgia, serif';[0,-5,-10,-15].forEach(p=>v.ctx.fillText('1e'+p,g.box.x+2,g.Y(p)-2));
+});
+
+/* ---------- 6 Time series ---------- */
+const n6=120,r6=seeded(42);
+const y6=idx(n6).map(i=>2+0.045*i+0.8*Math.sin(2*Math.PI*i/12+0.6)+0.45*r6()+0.25*Math.sin(2*Math.PI*i/41));
+let detr=false,line6=[],sp6=[],pk6=1;
+(function(){const mx=(n6-1)/2,my=y6.reduce((a,b)=>a+b)/n6;let sxy=0,sxx=0;y6.forEach((y,i)=>{sxy+=(i-mx)*(y-my);sxx+=(i-mx)**2;});const sl=sxy/sxx;line6=idx(n6).map(i=>my+sl*(i-mx));})();
+function calc6(){const z=detr?y6.map((y,i)=>y-line6[i]):y6.map(y=>y);const m=z.reduce((a,b)=>a+b)/n6;const F=dft(z.map(v=>v-m));
+  sp6=idx(61).map(k=>k?Math.hypot(F.re[k],F.im[k]):0);pk6=1;for(let k=1;k<=60;k++)if(sp6[k]>sp6[pk6])pk6=k;
+  $('e6k').textContent=pk6;$('e6p').textContent=(120/pk6).toFixed(1);}
+view('c6',v=>{const xs=idx(n6),z=detr?y6.map((y,i)=>y-line6[i]):y6,R=detr?{x0:0,x1:n6-1,y0:-2,y1:2}:{x0:0,x1:n6-1,y0:0,y1:9};
+  const layers=[{xs,ys:z,color:C.ink,lw:1.5}];if(!detr)layers.push({xs,ys:line6,color:C.b,dash:[5,4],lw:1.4});plot(v,R,layers);});
+view('c6s',v=>{const ks=idx(60).map(i=>i+1),mx=Math.max(...sp6)||1;
+  plot(v,{x0:0.5,x1:60.5,y0:0,y1:1.05},[{type:'bars',xs:ks,ys:ks.map(k=>sp6[k]/mx),color:C.muted,bw:0.6,base:0},{type:'bars',xs:[pk6],ys:[1],color:C.pen,bw:0.6,base:0}]);});
+$('d6').addEventListener('click',()=>{detr=!detr;$('d6').setAttribute('aria-pressed',detr);calc6();redrawIds(['c6','c6s']);});
+
+/* ---------- 7 Series to transform ---------- */
+let T7=3;
+view('c7t',v=>{const xs=range(-12,12,1200),R={x0:-12,x1:12,y0:-0.2,y1:1.25};
+  plot(v,R,[{xs,ys:xs.map(t=>{const m=((t%T7)+T7*1.5)%T7-T7/2;return Math.abs(m)<0.5?1:0;}),color:C.ink,lw:1.6}]);});
+view('c7',v=>{const R={x0:-4,x1:4,y0:-0.3,y1:1.1},ww=range(-4,4,600),sinc=w=>w===0?1:Math.sin(Math.PI*w)/(Math.PI*w);
+  const kmax=Math.ceil(4*T7),ks=[];for(let k=-kmax;k<=kmax;k++)ks.push(k);
+  plot(v,R,[{xs:ww,ys:ww.map(sinc),color:C.muted,dash:[5,4],lw:1.3},{type:'stem',xs:ks.map(k=>k/T7),ys:ks.map(k=>sinc(k/T7)),color:C.a,lw:1.4,r:Math.max(1.2,3.2-T7/8)}]);});
+function calc7(){T7=+$('T7').value;$('T7o').textContent=T7.toFixed(1);}
+
+/* ---------- wiring ---------- */
+const byId={};views.forEach(v=>byId[v.cv.id]=v);
+function redrawIds(ids){ids.forEach(id=>{const v=byId[id];v.ctx.clearRect(0,0,v.W,v.H);v.draw(v);});}
+const wires=[['k1',calc1,['c1']],['q1',calcImg,['c1img']],['k2',calc2,['c2']],['f3',calc3,['c3s','c3']],['t4',calc4,['c4','c4b']],['n5',calc5,['c5','c5e']],['T7',calc7,['c7t','c7']]];
+wires.forEach(([id,fn,cvs])=>$(id).addEventListener('input',()=>{fn();redrawIds(cvs);}));
+calc1();calcImg();calc2();calc3();calc4();calc5();calc6();calc7();
+sizeAll();
+})();
+</script>
+</body>
+</html>
